@@ -10,6 +10,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.base import Base
 
+# Try to import fakeredis, fall back to real redis for integration tests
+try:
+    from fakeredis import aioredis as fake_aioredis
+    FAKEREDIS_AVAILABLE = True
+except ImportError:
+    FAKEREDIS_AVAILABLE = False
+    from redis import asyncio as aioredis
+
 # Test database URL (use in-memory SQLite for tests)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 TEST_SYNC_DATABASE_URL = "sqlite:///:memory:"
@@ -116,4 +124,21 @@ def test_admin(test_db: Session):
     test_db.commit()
     test_db.refresh(admin)
     return admin
+
+
+@pytest_asyncio.fixture
+async def redis_client():
+    """Create a test Redis client using fakeredis."""
+    if FAKEREDIS_AVAILABLE:
+        # Use fakeredis for fast, isolated tests
+        client = fake_aioredis.FakeRedis(decode_responses=True)
+    else:
+        # Fall back to real Redis (requires Redis server running)
+        client = aioredis.from_url("redis://localhost:6379/15", decode_responses=True)
+    
+    yield client
+    
+    # Cleanup: flush all keys after each test
+    await client.flushall()
+    await client.aclose()
 

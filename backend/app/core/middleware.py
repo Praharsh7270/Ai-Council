@@ -1,15 +1,18 @@
-"""Authentication middleware for FastAPI."""
+"""Authentication and rate limiting middleware for FastAPI."""
 
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.security import verify_token
 from app.models.user import User
+from app.services.rate_limiter import RateLimiter
 
 # HTTP Bearer security scheme
 security = HTTPBearer()
@@ -174,3 +177,67 @@ async def get_optional_user(
         return user
     except (ValueError, Exception):
         return None
+
+
+async def check_rate_limit(
+    request: Request,
+    redis: Redis = Depends(get_redis),
+    user: Optional[User] = Depends(get_optional_user)
+) -> None:
+    """
+    Rate limiting middleware dependency.
+    
+    Checks rate limits for the current user or IP address.
+    Raises HTTPException 429 if rate limit is exceeded.
+    
+    Args:
+        request: FastAPI request object
+        redis: Redis client
+        user: Optional authenticated user
+        
+    Raises:
+        HTTPException 429: If rate limit is exceeded
+    """
+    rate_limiter = RateLimiter(redis)
+    
+    # Determine identifier and user type
+    if user is None:
+        # Demo user - use IP address
+        client_ip = request.client.host if request.client else "unknown"
+        identifier = client_ip
+        is_demo = True
+        is_admin = False
+    else:
+        # Authenticated user - use user ID
+        identifier = str(user.id)
+        is_demo = False
+        is_admin = user.role == "admin"
+    
+    # Check rate limit
+    is_allowed, remaining, reset_at = await rate_limiter.check_limit(
+        identifier=identifier,
+        is_demo=is_demo,
+        is_admin=is_admin
+    )
+    
+    # Add rate limit headers to response (will be added by middleware)
+    request.state.rate_limit_remaining = remaining
+    request.state.rate_limit_reset = reset_at
+    
+    if not is_allowed:
+        # Calculate retry_after in seconds
+        import time
+        retry_after = reset_at - int(time.time())
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": "Rate limit exceeded",
+                "retry_after": retry_after,
+                "reset_at": reset_at
+            },
+            headers={
+                "Retry-After": str(retry_after),
+                "X-RateLimit-Reset": str(reset_at)
+            }
+        )
