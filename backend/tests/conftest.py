@@ -142,3 +142,69 @@ async def redis_client():
     await client.flushall()
     await client.aclose()
 
+
+
+@pytest_asyncio.fixture
+async def async_db_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
+    """Create async test database session (alias for async_session)."""
+    async_session_maker = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    
+    async with async_session_maker() as session:
+        yield session
+
+
+@pytest_asyncio.fixture
+async def test_user_async(async_db_session: AsyncSession):
+    """Create a test user for async tests."""
+    from app.models.user import User
+    from app.core.security import hash_password
+    
+    user = User(
+        email="test@example.com",
+        password_hash=hash_password("TestPassword123"),
+        name="Test User",
+        role="user",
+        is_active=True
+    )
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def async_client(async_engine):
+    """Create async test client."""
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    from app.core.database import get_db
+    
+    # Override database dependency
+    async def override_get_db():
+        async_session_maker = async_sessionmaker(
+            async_engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+        async with async_session_maker() as session:
+            yield session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    
+    # Clean up
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def async_db(async_db_session):
+    """Alias for async_db_session for consistency."""
+    return async_db_session
+

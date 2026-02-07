@@ -38,10 +38,6 @@ def get_sync_session() -> Session:
         session.close()
 
 
-# Alias for convenience
-get_db = get_sync_session
-
-
 # Async support (optional, requires asyncpg)
 try:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -79,9 +75,14 @@ try:
                 raise
             finally:
                 await session.close()
+    
+    # Use async session by default if available
+    get_db = get_async_session
                 
 except ImportError:
     # asyncpg not installed, async support disabled
     async_engine = None
     AsyncSessionLocal = None
     get_async_session = None
+    # Fall back to sync session
+    get_db = get_sync_session
