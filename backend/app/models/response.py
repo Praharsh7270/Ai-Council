@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Dict
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,8 +23,12 @@ class Response(Base):
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     total_cost: Mapped[float] = mapped_column(Float, nullable=False)
     execution_time: Mapped[float] = mapped_column(Float, nullable=False)
-    models_used: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    orchestration_metadata: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    models_used: Mapped[Dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
+    orchestration_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow
     )
