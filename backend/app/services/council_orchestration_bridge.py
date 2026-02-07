@@ -18,6 +18,7 @@ from ai_council.utils.config import AICouncilConfig
 from app.services.websocket_manager import WebSocketManager
 from app.services.cloud_ai.model_registry import MODEL_REGISTRY
 from app.services.cloud_ai.adapter import CloudAIAdapter
+from app.services.execution_mode_config import get_execution_mode_config
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,8 @@ class CouncilOrchestrationBridge:
         try:
             logger.info(f"Processing request {request_id} in {execution_mode.value} mode")
             
-            # Initialize AI Council with cloud AI adapters
-            self.ai_council = self._create_ai_council()
+            # Initialize AI Council with cloud AI adapters and execution mode config
+            self.ai_council = self._create_ai_council(execution_mode)
             
             # Set up event hooks for WebSocket updates
             self._setup_event_hooks(request_id)
@@ -142,25 +143,50 @@ class CouncilOrchestrationBridge:
             self.current_request_id = None
             self._pending_routing_assignments = []
     
-    def _create_ai_council(self) -> OrchestrationLayer:
+    def _create_ai_council(self, execution_mode: ExecutionMode) -> OrchestrationLayer:
         """
         Create AI Council instance with cloud AI adapters.
         
         This method:
-        1. Creates AI Council configuration
+        1. Creates AI Council configuration with execution mode settings
         2. Initializes the factory
         3. Registers cloud AI models from MODEL_REGISTRY
         4. Returns the orchestration layer
         
+        Args:
+            execution_mode: The execution mode to configure AI Council with
+        
         Returns:
             OrchestrationLayer: Configured AI Council orchestration layer
         """
-        logger.info("Creating AI Council with cloud AI adapters")
+        logger.info(f"Creating AI Council with cloud AI adapters for {execution_mode.value} mode")
         
-        # Create AI Council configuration
+        # Get execution mode configuration
+        mode_config = get_execution_mode_config(execution_mode)
+        logger.info(
+            f"Execution mode config: parallelism={mode_config.max_parallel_executions}, "
+            f"arbitration={mode_config.enable_arbitration}, "
+            f"accuracy={mode_config.accuracy_requirement}, "
+            f"cost_limit={mode_config.cost_limit}"
+        )
+        
+        # Create AI Council configuration with execution mode settings
         config = AICouncilConfig()
         
-        # Create factory
+        # Apply execution mode configuration to AI Council config
+        config.execution.default_mode = execution_mode
+        config.execution.max_parallel_executions = mode_config.max_parallel_executions
+        config.execution.default_timeout_seconds = mode_config.timeout_seconds
+        config.execution.max_retries = mode_config.max_retries
+        config.execution.enable_arbitration = mode_config.enable_arbitration
+        config.execution.enable_synthesis = mode_config.enable_synthesis
+        config.execution.default_accuracy_requirement = mode_config.accuracy_requirement
+        
+        # Set cost limit if specified
+        if mode_config.cost_limit is not None:
+            config.cost.max_cost_per_request = mode_config.cost_limit
+        
+        # Create factory with configured settings
         factory = AICouncilFactory(config)
         
         # Register cloud AI models from our MODEL_REGISTRY
