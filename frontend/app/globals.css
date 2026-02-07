@@ -56,4 +56,67 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Touch-friendly tap targets (minimum 44x44px) */
+  button,
+  a {
+    @apply min-h-[44px] min-w-[44px] touch-manipulation;
+  }
+  
+  /* Prevent text size adjustment on mobile */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 }
+
+/* Custom animations for landing page */
+@layer utilities {
+  .animate-in {
+    animation: animate-in 0.5s ease-out;
+  }
+  
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .slide-in-from-left-2 {
+    animation: slide-in-from-left 0.3s ease-out;
+  }
+  
+  @keyframes slide-in-from-left {
+    from {
+      transform: translateX(-8px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
+

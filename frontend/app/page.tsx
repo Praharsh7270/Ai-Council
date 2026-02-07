@@ -1,12 +1,34 @@
+import { Navigation } from "@/components/landing/navigation"
+import { HeroSection } from "@/components/landing/hero-section"
+import { FeaturesSection } from "@/components/landing/features-section"
+import { HowItWorksSection } from "@/components/landing/how-it-works-section"
+import { OrchestrationVisualization } from "@/components/landing/orchestration-visualization"
+import { DemoQueryInterface } from "@/components/landing/demo-query-interface"
+import { CTASection } from "@/components/landing/cta-section"
+import { Footer } from "@/components/landing/footer"
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">AI Council</h1>
-        <p className="text-xl text-gray-600">
-          Multi-agent AI orchestration platform
-        </p>
-      </div>
-    </main>
+    <>
+      <Navigation />
+      <main className="min-h-screen">
+        <HeroSection />
+        <div id="features">
+          <FeaturesSection />
+        </div>
+        <div id="how-it-works">
+          <HowItWorksSection />
+        </div>
+        <OrchestrationVisualization />
+        <div id="demo">
+          <DemoQueryInterface />
+        </div>
+        <div id="pricing">
+          <CTASection />
+        </div>
+      </main>
+      <Footer />
+    </>
   )
 }
+
