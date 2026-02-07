@@ -1,8 +1,8 @@
 """Admin endpoints for user management and system monitoring."""
 
 import logging
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +14,10 @@ from app.core.database import get_db
 from app.core.middleware import get_current_admin_user
 from app.models.user import User
 from app.models.request import Request
+from app.models.response import Response
+from app.services.websocket_manager import websocket_manager
+from app.services.cloud_ai.circuit_breaker import get_circuit_breaker
+from app.services.provider_health_checker import get_health_checker
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -318,3 +322,157 @@ async def get_user_details(
         total_requests=total_requests or 0,
         recent_requests=recent_requests_data
     )
+
+
+class ProviderHealthStatus(BaseModel):
+    """Health status for a cloud AI provider."""
+    status: str  # "healthy", "degraded", or "down"
+    last_check: str
+    response_time_ms: Optional[float] = None
+    error_message: Optional[str] = None
+
+
+class CircuitBreakerStatus(BaseModel):
+    """Circuit breaker status for a provider."""
+    state: str  # "closed", "open", or "half_open"
+    failure_count: int
+    timeout: float
+
+
+class MonitoringResponse(BaseModel):
+    """System monitoring data response."""
+    total_users: int
+    requests_last_24h: int
+    average_response_time: float
+    total_cost_last_24h: float
+    success_rate: float
+    active_websockets: int
+    provider_health: Dict[str, ProviderHealthStatus]
+    circuit_breakers: Dict[str, CircuitBreakerStatus]
+
+
+@router.get("/monitoring", response_model=MonitoringResponse)
+async def get_monitoring_data(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """
+    Get system monitoring data including metrics, health status, and circuit breaker states.
+    
+    Requires admin role for access.
+    
+    Args:
+        db: Database session
+        current_admin: Current admin user
+        
+    Returns:
+        System monitoring data with all metrics
+    """
+    # Calculate 24 hours ago
+    twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+    
+    # Count total registered users
+    total_users = db.query(func.count(User.id)).scalar() or 0
+    
+    # Count requests in last 24 hours
+    requests_last_24h = (
+        db.query(func.count(Request.id))
+        .filter(Request.created_at >= twenty_four_hours_ago)
+        .scalar() or 0
+    )
+    
+    # Calculate average response time from completed requests in last 24 hours
+    avg_response_time_result = (
+        db.query(func.avg(Response.execution_time))
+        .join(Request, Response.request_id == Request.id)
+        .filter(Request.created_at >= twenty_four_hours_ago)
+        .filter(Request.status == "completed")
+        .scalar()
+    )
+    average_response_time = float(avg_response_time_result) if avg_response_time_result else 0.0
+    
+    # Calculate total cost in last 24 hours
+    total_cost_result = (
+        db.query(func.sum(Response.total_cost))
+        .join(Request, Response.request_id == Request.id)
+        .filter(Request.created_at >= twenty_four_hours_ago)
+        .scalar()
+    )
+    total_cost_last_24h = float(total_cost_result) if total_cost_result else 0.0
+    
+    # Calculate success rate
+    total_requests_24h = (
+        db.query(func.count(Request.id))
+        .filter(Request.created_at >= twenty_four_hours_ago)
+        .filter(Request.status.in_(["completed", "failed"]))
+        .scalar() or 0
+    )
+    
+    successful_requests_24h = (
+        db.query(func.count(Request.id))
+        .filter(Request.created_at >= twenty_four_hours_ago)
+        .filter(Request.status == "completed")
+        .scalar() or 0
+    )
+    
+    success_rate = (
+        (successful_requests_24h / total_requests_24h) 
+        if total_requests_24h > 0 
+        else 1.0
+    )
+    
+    # Count active WebSocket connections
+    active_websockets = websocket_manager.get_active_connection_count()
+    
+    # Get provider health status (will be implemented in next subtask)
+    provider_health = await _check_provider_health()
+    
+    # Get circuit breaker states
+    circuit_breaker = get_circuit_breaker()
+    providers = ["groq", "together", "openrouter", "huggingface"]
+    
+    circuit_breakers = {}
+    for provider in providers:
+        stats = circuit_breaker.get_stats(provider)
+        circuit_breakers[provider] = CircuitBreakerStatus(
+            state=stats["state"],
+            failure_count=stats["failure_count"],
+            timeout=stats["timeout"]
+        )
+    
+    return MonitoringResponse(
+        total_users=total_users,
+        requests_last_24h=requests_last_24h,
+        average_response_time=average_response_time,
+        total_cost_last_24h=total_cost_last_24h,
+        success_rate=success_rate,
+        active_websockets=active_websockets,
+        provider_health=provider_health,
+        circuit_breakers=circuit_breakers
+    )
+
+
+async def _check_provider_health() -> Dict[str, ProviderHealthStatus]:
+    """
+    Check health status of all cloud AI providers.
+    
+    Uses the ProviderHealthChecker service to ping each provider
+    and cache results for 1 minute.
+    
+    Returns:
+        Dictionary mapping provider names to health status
+    """
+    health_checker = get_health_checker()
+    health_statuses = await health_checker.check_all_providers()
+    
+    # Convert to dictionary format for API response
+    result = {}
+    for provider, status in health_statuses.items():
+        result[provider] = ProviderHealthStatus(
+            status=status.status,
+            last_check=status.last_check.isoformat(),
+            response_time_ms=status.response_time_ms,
+            error_message=status.error_message
+        )
+    
+    return result
