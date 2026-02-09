@@ -1,5 +1,7 @@
 # 🤖 AI Council Orchestrator
 
+![OSCG26 Label jpg](https://github.com/user-attachments/assets/ccfedd02-a327-4e49-892c-0934c59cc069)
+
 ![CI](https://github.com/shrixtacy/Ai-Council/actions/workflows/ci.yml/badge.svg)
 [![PyPI version](https://badge.fury.io/py/ai-council-orchestrator.svg)](https://badge.fury.io/py/ai-council-orchestrator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
