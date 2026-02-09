@@ -1,5 +1,12 @@
 # 🤖 AI Council Orchestrator
 
+![CI](https://github.com/shrixtacy/Ai-Council/actions/workflows/ci.yml/badge.svg)
+[![PyPI version](https://badge.fury.io/py/ai-council-orchestrator.svg)](https://badge.fury.io/py/ai-council-orchestrator)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
+
+
 **A Production-Grade Multi-Agent AI Orchestration System**
 
 [![PyPI version](https://badge.fury.io/py/ai-council-orchestrator.svg)](https://badge.fury.io/py/ai-council-orchestrator)
@@ -8,7 +15,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OSCG Contributors](https://img.shields.io/badge/OSCG-Contributors%20Welcome-brightgreen.svg)](./OSCG_CONTRIBUTORS.md)
 [![Tests](https://img.shields.io/badge/tests-95%20passing-green.svg)](./tests/)
-[![Code Coverage](https://img.shields.io/badge/coverage-45%25-yellow.svg)](./htmlcov/)
+[![Coverage](https://codecov.io/gh/shrixtacy/Ai-Council/branch/main/graph/badge.svg)](https://codecov.io/gh/shrixtacy/Ai-Council)
 [![Documentation](https://img.shields.io/badge/docs-comprehensive-brightgreen.svg)](./docs/)
 [![PyPI - Status](https://img.shields.io/pypi/status/ai-council-orchestrator)](https://pypi.org/project/ai-council-orchestrator/)
 [![GitHub stars](https://img.shields.io/github/stars/shrixtacy/Ai-Council.svg?style=social&label=Star)](https://github.com/shrixtacy/Ai-Council)
