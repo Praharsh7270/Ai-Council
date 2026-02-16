@@ -6,7 +6,7 @@ echo.
 
 REM Check if backend dependencies are installed
 echo [1/3] Checking dependencies...
-python -c "import fastapi" 2>nul
+python -c "import fastapi; import ai_council" 2>nul
 if errorlevel 1 (
     echo Installing backend dependencies...
     cd backend

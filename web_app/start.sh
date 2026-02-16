@@ -7,7 +7,7 @@ echo ""
 
 # Check if backend dependencies are installed
 echo "[1/3] Checking dependencies..."
-python3 -c "import fastapi" 2>/dev/null
+python3 -c "import fastapi; import ai_council" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo "Installing backend dependencies..."
     cd backend
