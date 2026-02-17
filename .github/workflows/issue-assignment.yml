@@ -21,6 +21,15 @@ jobs:
             const issue = context.payload.issue;
             const creator = issue.user.login;
             const issueNumber = issue.number;
+            const repoOwner = context.repo.owner;
+            
+            // Only auto-assign if creator is NOT the repo owner
+            // If owner creates an issue, wait for someone to comment "assign me"
+            if (creator.toLowerCase() === repoOwner.toLowerCase()) {
+              console.log(`Issue #${issueNumber} created by repo owner @${creator} - skipping auto-assignment`);
+              console.log(`Waiting for someone to comment with assignment keywords...`);
+              return;
+            }
             
             // Assign the issue to the creator
             await github.rest.issues.addAssignees({

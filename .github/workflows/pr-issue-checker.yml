@@ -22,11 +22,16 @@ jobs:
             const prTitle = pr.title || '';
             const prAuthor = pr.user.login;
             
-            // Patterns to detect issue references
+            // Patterns to detect issue references (more selective to avoid false positives)
             const issuePatterns = [
+              // Keywords with issue numbers: "Fixes #123", "Closes #456", etc.
               /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi,
+              // Keywords with full GitHub URLs
               /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+https?:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/(\d+)/gi,
-              /#(\d+)/g
+              // Issue keyword followed by number: "Issue #123", "issue: #456"
+              /\bissue[:\s]+#(\d+)/gi,
+              // Full GitHub issue URLs without keywords
+              /https?:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/(\d+)/gi
             ];
             
             let linkedIssues = new Set();
@@ -34,11 +39,32 @@ jobs:
             // Check PR body and title for issue references
             const textToCheck = `${prTitle} ${prBody}`;
             
+            // Remove markdown code blocks to avoid false positives
+            const textWithoutCodeBlocks = textToCheck.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '');
+            
+            // Remove markdown headings to avoid false positives (e.g., "# 1. Introduction")
+            const textWithoutHeadings = textWithoutCodeBlocks.replace(/^#+\s+\d+/gm, '');
+            
             for (const pattern of issuePatterns) {
-              const matches = textToCheck.matchAll(pattern);
+              const matches = textWithoutHeadings.matchAll(pattern);
               for (const match of matches) {
                 const issueNum = match[1];
                 if (issueNum) {
+                  // Filter out false positives
+                  const matchContext = match.input.substring(Math.max(0, match.index - 10), match.index);
+                  
+                  // Skip if preceded by "PR" or "pull" (e.g., "PR #123")
+                  if (/\b(?:pr|pull)\s*$/i.test(matchContext)) {
+                    console.log(`Skipping #${issueNum} - appears to be a PR reference`);
+                    continue;
+                  }
+                  
+                  // Skip if it matches the current PR number
+                  if (parseInt(issueNum) === prNumber) {
+                    console.log(`Skipping #${issueNum} - matches current PR number`);
+                    continue;
+                  }
+                  
                   linkedIssues.add(issueNum);
                 }
               }
