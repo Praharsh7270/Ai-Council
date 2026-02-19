@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from .core.models import ExecutionMode, FinalResponse
+from .core.exceptions import (
+    AICouncilError, ConfigurationError, ModelTimeoutError, 
+    AuthenticationError, RateLimitError, ProviderError, 
+    ValidationError, OrchestrationError
+)
 from .core.interfaces import OrchestrationLayer
 from .utils.config import AICouncilConfig, load_config
 from .utils.logging import configure_logging, get_logger
@@ -91,6 +96,86 @@ class AICouncil:
             
             return response
             
+        except ConfigurationError as e:
+            self.logger.error(f"Configuration error: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="ConfigurationError",
+                models_used=[]
+            )
+        except ValidationError as e:
+            self.logger.warning(f"Validation error: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="ValidationError",
+                models_used=[]
+            )
+        except AuthenticationError as e:
+            self.logger.error(f"Authentication failed: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="AuthenticationError",
+                models_used=[]
+            )
+        except ModelTimeoutError as e:
+            self.logger.error(f"Request timed out: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="ModelTimeoutError",
+                models_used=[]
+            )
+        except RateLimitError as e:
+            self.logger.warning(f"Rate limit exceeded: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="RateLimitError",
+                models_used=[]
+            )
+        except ProviderError as e:
+            self.logger.error(f"Provider error: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="ProviderError",
+                models_used=[]
+            )
+        except OrchestrationError as e:
+            self.logger.error(f"Orchestration error: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="OrchestrationError",
+                models_used=[]
+            )
+        except AICouncilError as e:
+            self.logger.error(f"Generic AI Council error: {str(e)}")
+            return FinalResponse(
+                content="",
+                overall_confidence=0.0,
+                success=False,
+                error_message=str(e),
+                error_type="AICouncilError",
+                models_used=[]
+            )
         except Exception as e:
             self.logger.error(f"Unexpected error processing request: {str(e)}")
             return FinalResponse(
@@ -98,6 +183,7 @@ class AICouncil:
                 overall_confidence=0.0,
                 success=False,
                 error_message=f"System error: {str(e)}",
+                error_type="SystemError",
                 models_used=[]
             )
     
